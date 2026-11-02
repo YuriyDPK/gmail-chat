@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Encrypted local OAuth token store
+/.gmail-chat-tokens/

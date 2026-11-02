@@ -1,36 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Gmail Chat
 
-## Getting Started
+Локальный веб-клиент Gmail: письма объединяются по адресу контакта, внутри диалога можно выбрать отдельную тему Gmail. Приложение показывает только реальные письма из подключённого аккаунта.
 
-First, run the development server:
+## Запуск
+
+1. В Google Cloud включите Gmail API, настройте экран согласия OAuth и создайте OAuth client типа **Web application**. Для локального запуска добавьте разрешённый redirect URI `http://localhost:3000/api/auth/callback/google`. Если приложение находится в режиме Testing, добавьте аккаунт в список тестовых пользователей.
+2. Создайте `.env.local` в корне проекта:
+
+   ```dotenv
+   AUTH_GOOGLE_ID=ваш-client-id
+   AUTH_GOOGLE_SECRET=ваш-client-secret
+   AUTH_SECRET=длинная-случайная-строка
+   NEXTAUTH_URL=http://localhost:3000
+   ```
+
+   Например, случайный секрет можно создать командой `openssl rand -base64 32`. Значения не должны попадать в репозиторий.
+3. Выполните `npm install` и `npm run dev`, затем откройте [http://localhost:3000](http://localhost:3000). Войдите в Google и предоставьте запрошенный доступ к Gmail. Для другого адреса приложения измените `NEXTAUTH_URL` и redirect URI в Google Cloud.
+
+## Как это работает
+
+- Auth.js использует зашифрованную сессионную cookie. Access и refresh токены Google в клиентскую сессию не попадают: они хранятся на сервере в каталоге `.gmail-chat-tokens`, зашифрованные AES-256-GCM ключом, производным от `AUTH_SECRET`. Каталог исключён из Git. При выходе файл с токенами удаляется; при истечении access token обновляется на сервере.
+- Нужны разрешения Gmail `gmail.modify` (чтение и отметка прочитанного) и `gmail.send` (отправка). HTML-письма показываются в изолированном фрейме с сохранением вёрстки и встроенных изображений; внешние изображения загружаются автоматически и могут сообщить отправителю об открытии письма. Вложения скачиваются через сервер.
+- При отправке сообщение сразу появляется в чате со статусом. После подтверждения Gmail приложение обновляет список и заменяет временное сообщение письмом из почты; при ошибке доступны повтор и редактирование. Временное состояние хранится в памяти вкладки и сбрасывается при перезагрузке страницы.
+- В разделе «Все» объединяются обычные письма и отдельная страница архива; при подгрузке более ранних писем запрашиваются обе страницы. «Архив» показывает полученные письма без метки «Входящие»; отправленные, спам и черновики в нём не перечисляются. «Спам» показывает письма Gmail с меткой SPAM. Через контекстное меню можно убрать входящие письма контакта в архив, переместить полученные письма контакта в спам или вернуть письма из этих разделов во входящие. Действия учитывают и письма, ещё не загруженные в интерфейс.
+- Правой кнопкой мыши по чату или через меню в его заголовке можно перенести все письма этого контакта в корзину Gmail, включая ещё не загруженные; спам и черновики не затрагиваются. Файлы можно выбрать скрепкой или перетащить в чат; вложения показываются в сообщениях и в разделе «Медиа», где доступны вкладки изображений и файлов и загрузка более ранних писем.
+- Чат можно закрепить или открепить через контекстное меню. Закрепления сохраняются отдельно для каждого аккаунта в текущем браузере и не синхронизируются с Gmail или другими устройствами. Закреплённые контакты остаются в списке, даже когда их письма отсутствуют на первой странице.
+- Загружаются первые 50 писем; более ранние доступны кнопкой внизу списка. Список сначала загружает только заголовки писем; содержимое запрашивается при открытии чата по 20 сообщений. Поиск выполняется на сервере Gmail по всему выбранному разделу, в том числе по старым письмам; результаты подгружаются страницами. При открытии чата можно загружать более ранние письма этого контакта. Счётчики непрочитанных учитывают загруженные письма. Первая страница списка обновляется каждые 60 секунд и при возвращении во вкладку; ранее загруженные страницы при этом не перечитываются. Для экономии квоты Gmail содержимое уже загруженных писем хранится в памяти сервера до двух минут; новые письма обнаруживаются при обновлении списка. Ответ отправляется в тему последнего показанного письма; выбор темы над перепиской ограничивает историю этой темой. Вложения при отправке — до 15 МиБ суммарно.
+- Это MVP для одного постоянно работающего Node.js-сервера с защищённым постоянным диском. Локальное хранилище токенов не подходит для serverless и нескольких независимых экземпляров; там необходимы общее защищённое хранилище и межпроцессная блокировка обновления. Защищайте сервер и резервные копии, используйте HTTPS вне localhost. Смена `AUTH_SECRET` делает существующие сессии и сохранённые токены недоступными.
+
+## Проверки
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npx tsc --noEmit
+npm run lint
+npm test
+npm run build
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
